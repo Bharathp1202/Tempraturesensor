@@ -1,0 +1,67 @@
+#include <Arduino.h>
+#include <TimerOne.h> // TimerOne library for timer interrupts
+
+// Pin definitions
+#define LM35_PIN A0
+#define LED_PIN 13
+
+// Thresholds and blink intervals
+#define TEMP_THRESHOLD_LOW 30
+#define BLINK_INTERVAL_LOW 250
+#define BLINK_INTERVAL_HIGH 500
+
+// Variables
+volatile bool ledState = LOW; // Volatile for use in interrupt
+volatile bool belowThreshold = false;
+
+// Function to read temperature from LM35 sensor
+float readTemperature() {
+  // Read analog input from LM35 sensor
+  int sensorValue = analogRead(LM35_PIN);
+  
+  // Convert analog value to temperature in Celsius
+  float temperature = sensorValue * (5.0 / 1023.0 * 100.0);
+  
+  return temperature;
+}
+
+// Timer1 ISR (Interrupt Service Routine) function
+void timerIsr() {
+  if (belowThreshold) {
+    // Toggle LED state
+    ledState = !ledState;
+    digitalWrite(LED_PIN, ledState);
+  }
+}
+
+void setup() {
+  // Initialize LED pin as output
+  pinMode(LED_PIN, OUTPUT);
+
+  // Initialize Timer1 with timerIsr as ISR (interrupt service routine)
+  Timer1.initialize(BLINK_INTERVAL_LOW * 1000); // Timer interval in microseconds
+  Timer1.attachInterrupt(timerIsr); // Attach the ISR function
+
+  // Set initial LED state to LOW
+  digitalWrite(LED_PIN, LOW);
+}
+
+void loop() {
+  // Read temperature from LM35 sensor
+  float temperature = readTemperature();
+
+  // Check if temperature is below low threshold
+  if (temperature < TEMP_THRESHOLD_LOW) {
+    // Set flag to indicate below threshold
+    belowThreshold = true;
+    // Change timer interval for faster blinking
+    Timer1.setPeriod(BLINK_INTERVAL_LOW * 1000); // Timer interval in millisec
+  } else {
+    // Clear flag to indicate above threshold
+    belowThreshold = false;
+    // Change timer interval for slower blinking
+    Timer1.setPeriod(BLINK_INTERVAL_HIGH * 1000); // Timer interval in microsec
+    // Ensure LED is off when temperature is above threshold
+    digitalWrite(LED_PIN, LOW);
+  }
+}
